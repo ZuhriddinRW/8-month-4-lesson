@@ -1,5 +1,5 @@
 from pathlib import Path
-from django.conf.global_settings import AUTH_USER_MODEL
+from django.conf.global_settings import AUTH_USER_MODEL, MEDIA_ROOT
 
 BASE_DIR = Path ( __file__ ).resolve ().parent.parent
 
@@ -87,3 +87,6 @@ AUTH_USER_MODEL = 'django_app.User'
 
 EXPIRATION_PHONE = 2
 EXPIRATION_EMAIL = 3
+
+MEDIA_ROOT = 'media'
+MEDIA_URL = '/media/'

@@ -3,6 +3,8 @@ import random
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import FileExtensionValidator
+from rest_framework_simplejwt.tokens import RefreshToken
+
 from django_project.settings import AUTH_USER_MODEL, EXPIRATION_PHONE, EXPIRATION_EMAIL
 import uuid
 
@@ -58,6 +60,47 @@ class User(AbstractUser, BaseModel):
         )
         return code
 
+    def check_username(self):
+        if not self.username:
+            temp_username = f"username{str(uuid.uuid4).split('-')[-1]}"
+            while User.objects.filter(username=temp_username).exists():
+                temp_username = f"{temp_username}{random.randint(0, 9)}"
+            self.username = temp_username
+
+    def check_pass(self):
+        if not self.password:
+            temp_pass = f"pass{str(uuid.uuid4).split('-')[-1]}"
+            self.password = temp_pass
+
+    def hashing_pass(self):
+        if not self.password.startswith('pbkdf2_sha256'):
+            self.set_password(self.password)
+
+    def check_email(self):
+        if self.email:
+            formatted_email = str(self.email).lower()
+            self.email = formatted_email
+
+    def token(self):
+        refresh = RefreshToken.for_user(self)
+        data = {
+            'access': str(refresh.access_token),
+            'refresh': str(refresh)
+        }
+        return data
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        return super(User, self).save(*args, **kwargs)
+
+    def clean(self):
+        self.check_email()
+        self.check_username()
+        self.check_pass()
+        self.hashing_pass()
+
+
+
 
 class CodeVerification(BaseModel):
     VERIFY_TYPE = (
@@ -67,7 +110,7 @@ class CodeVerification(BaseModel):
 
     code = models.CharField(max_length=4)
     verify_type = models.CharField(max_length=30, choices=VERIFY_TYPE)
-    user = models.ForeignKey(AUTH_USER_MODEL, on_delete=models.CASCADE)
+    user = models.ForeignKey(AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='verify_code')
     expiration_time = models.DateTimeField()
     confirmed = models.BooleanField(default=False)
 
