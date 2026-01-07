@@ -13,8 +13,8 @@ NEW, CODE_VERIFIED, DONE, PHOTO_DONE = ('new', 'code_verified', 'done', 'photo_d
 VIA_EMAIL, VIA_PHONE = ('via_email', 'via_phone')
 
 
-class BaseModel :
-    id = models.UUIDField ( primary_key=True, unique=True, editable=False, default=uuid.uuid4 () )
+class BaseModel ( models.Model ) :
+    id = models.UUIDField ( primary_key=True, unique=True, editable=False, default=uuid.uuid4 )
     created_at = models.DateTimeField ( auto_now_add=True )
     updated_at = models.DateTimeField ( auto_now=True )
 
@@ -47,7 +47,7 @@ class User ( AbstractUser, BaseModel ) :
     email = models.EmailField ( unique=True, null=True, blank=True )
     phone_number = models.CharField ( max_length=15, unique=True, null=True, blank=True )
     photo = models.ImageField ( upload_to='user_photos/', blank=True, null=True,
-                                validators=[FileExtensionValidator ( allowed_extensions=['.png', '.jpg', '.jpeg'] )] )
+                                validators=[FileExtensionValidator ( allowed_extensions=['png', 'jpg', 'jpeg'] )] )
 
     def __str__(self) :
         return self.username
@@ -63,14 +63,14 @@ class User ( AbstractUser, BaseModel ) :
 
     def check_username(self) :
         if not self.username :
-            temp_username = f"username{str ( uuid.uuid4 ).split ( '-' )[-1]}"
+            temp_username = f"username{str ( uuid.uuid4 () ).split ( '-' )[-1]}"
             while User.objects.filter ( username=temp_username ).exists () :
                 temp_username = f"{temp_username}{random.randint ( 0, 9 )}"
             self.username = temp_username
 
     def check_pass(self) :
         if not self.password :
-            temp_pass = f"pass{str ( uuid.uuid4 ).split ( '-' )[-1]}"
+            temp_pass = f"pass{str ( uuid.uuid4 () ).split ( '-' )[-1]}"
             self.password = temp_pass
 
     def hashing_pass(self) :
@@ -109,7 +109,7 @@ class CodeVerification ( BaseModel ) :
 
     code = models.CharField ( max_length=4 )
     verify_type = models.CharField ( max_length=30, choices=VERIFY_TYPE )
-    user = models.ForeignKey ( AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='verify_code' )
+    user = models.ForeignKey ( AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='verify_codes' )
     expiration_time = models.DateTimeField ()
     confirmed = models.BooleanField ( default=False )
 
