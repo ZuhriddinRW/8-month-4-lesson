@@ -1,11 +1,11 @@
 from django.shortcuts import render
 from rest_framework.response import Response
-from rest_framework.generics import CreateAPIView
+from rest_framework.generics import CreateAPIView, UpdateAPIView
 from rest_framework.views import APIView
 from datetime import datetime
 from .models import *
 from .serializers import *
-from rest_framework.permissions import *
+from rest_framework.permissions import IsAuthenticated, AllowAny
 
 
 class SignUpView ( CreateAPIView ) :
@@ -73,3 +73,19 @@ class ResendCodeView ( CreateAPIView ) :
                 user.email if user.auth_type == VIA_EMAIL else user.phone_number
         }
         return Response ( data )
+
+
+class ChangeUserInfo ( UpdateAPIView ) :
+    permission_classes = [IsAuthenticated]
+    queryset = User.objects.all ()
+    serializer_class = ChangeUserInfoSerializer
+
+    def get_object(self) :
+        return self.request.user
+
+    def update(self, request, *args, **kwargs) :
+        super ( ChangeUserInfoSerializer, self ).update ( request, *args, **kwargs )
+        data = {
+            'success' : True,
+            'message' : "Updated successfully!"
+        }

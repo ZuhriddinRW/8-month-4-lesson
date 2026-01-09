@@ -2,6 +2,7 @@ from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from .models import *
 from .utility import email_or_phone
+from django.contrib.auth.password_validation import validate_password
 
 
 class SignUpSerializer ( serializers.ModelSerializer ) :
@@ -121,3 +122,74 @@ class ResendCodeSerializer ( serializers.Serializer ) :
             print ( f"New code for phone: {code}" )
 
         return user
+
+
+class ChangeUserInfoSerializer ( serializers.Serializer ) :
+    first_name = serializers.CharField ( required=True, write_only=True )
+    last_name = serializers.CharField ( required=True, write_only=True )
+    username = serializers.CharField ( required=True, write_only=True )
+    password = serializers.CharField ( required=True, write_only=True )
+    confirm_password = serializers.CharField ( required=True, write_only=True )
+
+    def validate(self, data) :
+        password = data.get ( 'password' )
+        confirm_password = data.get ( 'confirm_password' )
+
+        if password != confirm_password :
+            raise ValidationError ( {
+                'success' : False,
+                'message' : "Passwords don't match"
+            } )
+
+        if password :
+            validate_password ( password )
+
+        return data
+
+    def validate_first_name(self, value) :
+        if not value.strip () :
+            raise ValidationError ( "First name cannot be empty" )
+
+        if value.isdigit () :
+            raise ValidationError ( "First name should not contain only digits" )
+
+        if len ( value ) < 2 :
+            raise ValidationError ( "First name should contain at least 2 characters" )
+
+        return value.strip ()
+
+    def validate_last_name(self, value) :
+        if not value.strip () :
+            raise ValidationError ( "Last name cannot be empty" )
+
+        if value.isdigit () :
+            raise ValidationError ( "Last name should not contain only digits" )
+
+        if len ( value ) < 2 :
+            raise ValidationError ( "Last name should contain at least 2 characters" )
+
+        return value.strip ()
+
+    def validate_username(self, value) :
+        if value.isdigit () or len ( value ) < 5 :
+            raise ValidationError (
+                "Username should not contain digits and should contain at least 5 characters"
+            )
+        return value
+
+    def update(self, instance, validated_data) :
+        validated_data.pop ( 'confirm_password', None )
+
+        instance.username = validated_data.get ( 'username', instance.username )
+        instance.first_name = validated_data.get ( 'first_name', instance.first_name )
+        instance.last_name = validated_data.get ( 'last_name', instance.last_name )
+
+        password = validated_data.get ( 'password' )
+        if password :
+            instance.set_password ( password )
+
+        if instance.auth_status == CODE_VERIFIED :
+            instance.auth_status = DONE
+
+        instance.save ()
+        return instance
