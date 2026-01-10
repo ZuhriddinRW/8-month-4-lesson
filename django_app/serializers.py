@@ -1,8 +1,11 @@
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from .models import *
-from .utility import email_or_phone
+from .utility import email_or_phone, check_user_input_type
 from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth import authenticate
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
 
 
 class SignUpSerializer ( serializers.ModelSerializer ) :
@@ -193,3 +196,101 @@ class ChangeUserInfoSerializer ( serializers.Serializer ) :
 
         instance.save ()
         return instance
+
+
+class UserPhotoSerializer ( serializers.Serializer ) :
+    photo = serializers.ImageField ()
+
+    def update(self, instance, validated_data) :
+        photo = validated_data.get ( 'photo', None )
+        if photo :
+            instance.photo = photo
+            instance.auth_status = PHOTO_DONE
+
+        instance.save ()
+        return instance
+
+
+class SignInSerializer ( TokenObtainPairSerializer ) :
+    def __init__(self, instance=None, data=..., **kwargs) :
+        super ( SignInSerializer, self ).__init__ ( instance, data, **kwargs )
+        self.fields['user_input'] = serializers.CharField ( required=True )
+        self.fields['username'] = serializers.CharField ( required=False, read_only=True )
+
+    def auth_validate(self, data) :
+        user_input = data.get ( 'user_input' )
+        user_type = check_user_input_type ( user_input )
+        if user_type == 'username' :
+            user = User.objects.filter ( username=user_input ).first ()
+            self.get_user ( user )
+            username = user_input
+        elif user_type == 'email' :
+            user = User.objects.filter ( email__iexact=user_input ).first ()
+            self.get_user ( user )
+            username = user.username
+        elif user_type == 'phone_number' :
+            user = User.objects.filter ( phone_number=user_input ).first ()
+            self.get_user ( user )
+            username = user.username
+        else :
+            data = {
+                'success' : False,
+                'message' : 'Sign in failed'
+            }
+            raise ValidationError ( data )
+
+        authenticated_kwargs = {
+            self.username_field : username,
+            'password' : data.get ( 'password' )
+        }
+
+        user = authenticate ( **authenticated_kwargs )
+
+        if not user :
+            raise ValidationError ( {
+                'success' : False,
+                'message' : 'Invalid credentials'
+            } )
+
+        if user.auth_status in [NEW, CODE_VERIFIED] :
+            data = {
+                'success' : False,
+                'message' : "Not registered"
+            }
+            raise ValidationError ( data )
+
+        self.user = user
+        return data
+
+    @staticmethod
+    def get_user(user) :
+        if not user :
+            raise ValidationError ( {
+                'success' : False,
+                'message' : 'User not found'
+            } )
+
+    def validate(self, attrs) :
+        data = self.auth_validate ( attrs )
+        data = self.user.token ()
+        data['auth_status'] = self.user.auth_status
+
+        return data
+
+
+class LogOutSerializer ( serializers.Serializer ) :
+    refresh = serializers.CharField ( required=True )
+
+    def validate(self, attrs) :
+        self.token = attrs.get ( 'refresh' )
+        return attrs
+
+    def save(self, **kwargs) :
+        try :
+            token = RefreshToken ( self.token )
+            token.blacklist ()
+        except Exception as e :
+            raise ValidationError ( {
+                'success' : False,
+                'message' : 'Token is invalid or expired'
+            } )

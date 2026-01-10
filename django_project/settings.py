@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from datetime import timedelta
 from django.conf import settings
@@ -36,7 +37,7 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME" : timedelta ( minutes=5 ),
+    "ACCESS_TOKEN_LIFETIME" : timedelta ( minutes=15 ),
     "REFRESH_TOKEN_LIFETIME" : timedelta ( days=1 ),
     "ROTATE_REFRESH_TOKENS" : False,
     "BLACKLIST_AFTER_ROTATION" : False,
@@ -146,5 +147,5 @@ AUTH_USER_MODEL = 'django_app.User'
 EXPIRATION_PHONE = 2
 EXPIRATION_EMAIL = 3
 
-MEDIA_ROOT = 'media'
 MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

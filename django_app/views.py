@@ -1,4 +1,5 @@
 from django.shortcuts import render
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.generics import CreateAPIView, UpdateAPIView
 from rest_framework.views import APIView
@@ -6,6 +7,7 @@ from datetime import datetime
 from .models import *
 from .serializers import *
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 
 class SignUpView ( CreateAPIView ) :
@@ -84,8 +86,45 @@ class ChangeUserInfo ( UpdateAPIView ) :
         return self.request.user
 
     def update(self, request, *args, **kwargs) :
-        super ( ChangeUserInfoSerializer, self ).update ( request, *args, **kwargs )
+        super ( ChangeUserInfo, self ).update ( request, *args, **kwargs )
         data = {
             'success' : True,
             'message' : "Updated successfully!"
         }
+        return Response ( data )
+
+
+class UserPhotoView ( APIView ) :
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request) :
+        serializer = UserPhotoSerializer ( data=request.data )
+        serializer.is_valid ( raise_exception=True )
+        user = self.request.user
+        serializer.update ( user, validated_data=serializer.validated_data )
+        data = {
+            'success' : True,
+            'message' : 'Your photo was changed successfully'
+        }
+        return Response ( data )
+
+
+class SignInView ( TokenObtainPairView ) :
+    serializer_class = SignInSerializer
+    permission_classes = [AllowAny]
+
+
+class LogOutView ( APIView ) :
+    permission_classes = [IsAuthenticated]
+    serializer_class = LogOutSerializer
+
+    def post(self, request, *args, **kwargs) :
+        serializer = self.serializer_class ( data=request.data )
+        serializer.is_valid ( raise_exception=True )
+        serializer.save ()
+
+        data = {
+            'success' : True,
+            'message' : 'Successfully logged out'
+        }
+        return Response ( data )
